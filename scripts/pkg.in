@@ -8,6 +8,7 @@ if [[ "$(id -u)" == "0" ]]; then
 fi
 
 # Setup TERMUX_APP_PACKAGE_MANAGER
+# shellcheck source=/dev/null
 source "@TERMUX_PREFIX@/bin/termux-setup-package-manager" || exit 1
 
 MIRROR_BASE_DIR="@TERMUX_PREFIX@/etc/termux/mirrors"
@@ -112,10 +113,10 @@ has_repo() {
 	# Check if root-repo or x11-repo are installed
 	repo="$1"
 
-	if [ -f "@TERMUX_PREFIX@/etc/apt/sources.list.d/$repo.list" ]; then
-		echo true
-	else
-		echo false
+	if [[ -f "@TERMUX_PREFIX@/etc/apt/sources.list.d/$repo.sources" ]]; then
+		echo deb822
+	elif [[ -f "@TERMUX_PREFIX@/etc/apt/sources.list.d/$repo.list" ]]; then
+		echo legacy
 	fi
 }
 
@@ -132,6 +133,7 @@ get_mirror_url() {
 	local -r _has_repo_root="$3"
 
 	unset_mirror_variables
+	# shellcheck source=/dev/null
 	source "$_mirror"
 
 	if [[ -z "${MAIN:-}" ]]; then
@@ -339,24 +341,33 @@ select_mirror() {
 		selected_mirror="${weighted_mirrors[${random_weight}]}"
 	fi
 
-	if [ -n "$selected_mirror" ]; then
-		(
-			unset_mirror_variables
-			source "$selected_mirror"
-			echo "deb $MAIN stable main" > @TERMUX_PREFIX@/etc/apt/sources.list
-			if [[ "$has_repo_x11" == "true" ]]; then
-				echo "deb $X11 x11 main" > @TERMUX_PREFIX@/etc/apt/sources.list.d/x11.list
-			fi
-			if [[ "$has_repo_root" == "true" ]]; then
-				echo "deb $ROOT root stable" > @TERMUX_PREFIX@/etc/apt/sources.list.d/root.list
-			fi
-		)
-	else
+	[[ -z "$selected_mirror" ]] && {
 		# Should not happen unless there is some issue with
 		# the script, or the mirror files
 		echo "Error: None of the mirrors are accessible"
 		exit 1
-	fi
+	}
+
+	(
+		unset_mirror_variables
+		# shellcheck source=/dev/null
+		source "$selected_mirror"
+
+		case "$(has_repo main)" in
+			'deb822') sed -ni -e "s|URIs:.*|URIs: $MAIN|" "@TERMUX_PREFIX@/etc/apt/sources.list.d/main.sources";;
+			'legacy') echo "deb $MAIN stable main" > @TERMUX_PREFIX@/etc/apt/sources.list;;
+		esac
+
+		case "${has_repo_x11:-}" in
+			'deb822') sed -ni -e "s|URIs:.*|URIs: $X11|" "@TERMUX_PREFIX@/etc/apt/sources.list.d/x11.sources";;
+			'legacy') echo "deb $X11 x11 main" > @TERMUX_PREFIX@/etc/apt/sources.list.d/x11.list;;
+		esac
+
+		case "${has_repo_root:-}" in
+			'deb822') sed -ni -e "s|URIs:.*|URIs: $ROOT|" "@TERMUX_PREFIX@/etc/apt/sources.list.d/root.sources";;
+			'legacy') echo "deb $ROOT root stable" > @TERMUX_PREFIX@/etc/apt/sources.list.d/root.list;;
+		esac
+	)
 }
 
 update_apt_cache() {
@@ -394,8 +405,8 @@ update_apt_cache() {
 
 force_check_mirror=false
 if [ "${1-}" = "--check-mirror" ]; then
-    force_check_mirror=true
-    shift 1
+	force_check_mirror=true
+	shift 1
 fi
 
 if [[ $# = 0 || $(echo "$1" | grep "^h") ]]; then
@@ -419,7 +430,7 @@ case "$TERMUX_APP_PACKAGE_MANAGER" in
 			rei*) apt install --reinstall "$@";;
 			se*) select_mirror; update_apt_cache; apt search "$@";;
 			un*|rem*|rm|del*) apt remove "$@";;
-                        upd*) select_mirror; apt update;;
+			upd*) select_mirror; apt update;;
 			up|upg*) select_mirror; apt update; apt full-upgrade "$@";;
 			*) ERROR=true;;
 		esac;;
@@ -435,7 +446,7 @@ case "$TERMUX_APP_PACKAGE_MANAGER" in
 			rei*) pacman -S "$@";;
 			se*) pacman -Sys "$@";;
 			un*|rem*|rm|del*) pacman -Rcns "$@";;
-                        upd*) pacman -Sy "$@";;
+			upd*) pacman -Sy "$@";;
 			up|upg*) pacman -Syu "$@";;
 			*) ERROR=true;;
 		esac;;
