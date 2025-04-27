@@ -44,30 +44,22 @@ updates() {
 }
 
 repo_subscriptions_apt() {
-	local main_sources
-	main_sources=$(grep -E '^[[:space:]]*deb[[:space:]]' "@TERMUX_PREFIX@/etc/apt/sources.list")
+	local apt_dir='@TERMUX_PREFIX@/etc/apt'
 
-	if [ -n "$main_sources" ]; then
-		echo "# sources.list"
-		echo "$main_sources"
-	fi
+	local filename source_entry repo_package sources_type
+	for filename in $apt_dir/sources.list{,.d/*}; do
+		[[ -f "$filename" ]] || continue
+		case "$filename" in
+			*.sources) sources_type="deb822";;
+			*.list)    sources_type="legacy";;
+			*) continue;; # Not a valid source type, skip
+		esac
+		source_entry="$(<"$filename")"
+		repo_package=$(dpkg -S "$filename" 2>/dev/null | cut -d : -f 1)
 
-	if [ -d "@TERMUX_PREFIX@/etc/apt/sources.list.d" ]; then
-		local filename repo_package supl_sources
-		while read -r filename; do
-			repo_package=$(dpkg -S "$filename" 2>/dev/null | cut -d : -f 1)
-			supl_sources=$(grep -E '^[[:space:]]*deb[[:space:]]' "$filename")
-
-			if [ -n "$supl_sources" ]; then
-				if [ -n "$repo_package" ]; then
-					echo "# $repo_package (sources.list.d/$(basename "$filename"))"
-				else
-					echo "# sources.list.d/$(basename "$filename")"
-				fi
-				echo "$supl_sources"
-			fi
-		done < <(find "@TERMUX_PREFIX@/etc/apt/sources.list.d" -maxdepth 1 ! -type d)
-	fi
+		echo "# ${repo_package:+"$repo_package ("}${filename/${apt_dir}\/}${repo_package:+")"} [${sources_type}]"
+		echo "$source_entry"
+	done
 }
 
 repo_subscriptions_pacman() {
