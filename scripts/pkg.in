@@ -354,19 +354,19 @@ select_mirror() {
 		source "$selected_mirror"
 
 		case "$(has_repo main)" in
-			'deb822') sed -ni -e "s|URIs:.*|URIs: $MAIN|" "@TERMUX_PREFIX@/etc/apt/sources.list.d/main.sources";;
+			'deb822') sed -i -e "s|URIs:.*|URIs: $MAIN|" "@TERMUX_PREFIX@/etc/apt/sources.list.d/main.sources";;
 			# There should always be a main repo, so fallback to
 			# creating sources.list unconditionally
 			*) echo "deb $MAIN stable main" > @TERMUX_PREFIX@/etc/apt/sources.list;;
 		esac
 
 		case "${has_repo_x11:-}" in
-			'deb822') sed -ni -e "s|URIs:.*|URIs: $X11|" "@TERMUX_PREFIX@/etc/apt/sources.list.d/x11.sources";;
+			'deb822') sed -i -e "s|URIs:.*|URIs: $X11|" "@TERMUX_PREFIX@/etc/apt/sources.list.d/x11.sources";;
 			'legacy') echo "deb $X11 x11 main" > @TERMUX_PREFIX@/etc/apt/sources.list.d/x11.list;;
 		esac
 
 		case "${has_repo_root:-}" in
-			'deb822') sed -ni -e "s|URIs:.*|URIs: $ROOT|" "@TERMUX_PREFIX@/etc/apt/sources.list.d/root.sources";;
+			'deb822') sed -i -e "s|URIs:.*|URIs: $ROOT|" "@TERMUX_PREFIX@/etc/apt/sources.list.d/root.sources";;
 			'legacy') echo "deb $ROOT root stable" > @TERMUX_PREFIX@/etc/apt/sources.list.d/root.list;;
 		esac
 	)
