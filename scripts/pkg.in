@@ -355,7 +355,9 @@ select_mirror() {
 
 		case "$(has_repo main)" in
 			'deb822') sed -ni -e "s|URIs:.*|URIs: $MAIN|" "@TERMUX_PREFIX@/etc/apt/sources.list.d/main.sources";;
-			'legacy') echo "deb $MAIN stable main" > @TERMUX_PREFIX@/etc/apt/sources.list;;
+			# There should always be a main repo, so fallback to
+			# creating sources.list unconditionally
+			*) echo "deb $MAIN stable main" > @TERMUX_PREFIX@/etc/apt/sources.list;;
 		esac
 
 		case "${has_repo_x11:-}" in
