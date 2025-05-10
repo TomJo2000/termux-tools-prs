@@ -178,6 +178,23 @@ get_mirror_weight() {
 	echo "$WEIGHT"
 }
 
+check_sources_file() {
+	sources_file="$1"
+	if [ ! -f "$sources_file" ]; then
+		return
+	fi
+	url=$(grep -oE 'https?://[^ ]+' <(grep -m 1 -E '^[[:space:]]*URIs:[[:space:]]+' "$sources_file") || true)
+	if [ -z "$url" ]; then
+		echo "bad"
+		return
+	fi
+	if check_mirror "$url"; then
+		echo "ok"
+	else
+		echo "bad"
+	fi
+}
+
 select_mirror() {
 	local current_mirror
 	if [ -f "@TERMUX_PREFIX@/etc/apt/sources.list.d/main.sources" ]; then
@@ -358,7 +375,14 @@ select_mirror() {
 		source "$selected_mirror"
 
 		case "$(has_repo main)" in
-			'deb822') sed -i -e "s|URIs:.*|URIs: $MAIN|" "@TERMUX_PREFIX@/etc/apt/sources.list.d/main.sources";;
+			'deb822')
+				sed -i -e "s|URIs:.*|URIs: $MAIN|" "@TERMUX_PREFIX@/etc/apt/sources.list.d/main.sources"
+				if [[ -f "@TERMUX_PREFIX@/etc/apt/sources.list" ]] && [[ $(check_sources_file "@TERMUX_PREFIX@/etc/apt/sources.list.d/main.sources") == "ok" ]]; then
+					# New mirror in main.sources format seems to be
+					# available so let's delete the legacy sources.list
+					rm "@TERMUX_PREFIX@/etc/apt/sources.list"
+				fi
+				;;
 			# There should always be a main repo, so fallback to
 			# creating sources.list if the `main.sources` file is missing
 			*) echo "deb $MAIN stable main" > @TERMUX_PREFIX@/etc/apt/sources.list;;
